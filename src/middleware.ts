@@ -26,6 +26,7 @@ export async function middleware(request: NextRequest) {
           response.cookies.set({ name, value, ...options })
         },
         remove(name: string, options: CookieOptions) {
+          // Bagian ini yang tadi bikin error merah:
           request.cookies.set({ name, value: '', ...options })
           response = NextResponse.next({
             request: {
@@ -40,14 +41,18 @@ export async function middleware(request: NextRequest) {
 
   const { data: { session } } = await supabase.auth.getSession()
 
-  // 1. Jika mencoba akses dashboard tapi belum login
-  if (!session && request.nextUrl.pathname.startsWith('/dashboard')) {
-    return NextResponse.redirect(new URL('/login', request.url))
+  const url = request.nextUrl.clone()
+
+  // Jika ke dashboard tapi belum login
+  if (!session && url.pathname.startsWith('/dashboard')) {
+    url.pathname = '/login'
+    return NextResponse.redirect(url)
   }
 
-  // 2. Jika sudah login tapi ingin ke halaman login/register lagi
-  if (session && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/register')) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+  // Jika sudah login tapi mau ke login/register
+  if (session && (url.pathname === '/login' || url.pathname === '/register')) {
+    url.pathname = '/dashboard'
+    return NextResponse.redirect(url)
   }
 
   return response
