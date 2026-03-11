@@ -9,7 +9,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const handleLogin = async (e: React.FormEvent) => {
+const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
@@ -20,12 +20,12 @@ export default function Login() {
 
     if (error) {
       alert("Login Gagal: " + error.message);
+      setLoading(false);
     } else {
       alert("Selamat Datang!");
-      router.refresh();
-      router.push('/dashboard'); // Pindah ke Dashboard setelah sukses
+      // Gunakan window.location agar halaman reload total dan session terbaca middleware
+      window.location.href = '/dashboard';
     }
-    setLoading(false);
   };
 
   return (
