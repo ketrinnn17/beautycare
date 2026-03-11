@@ -22,6 +22,7 @@ export default function Login() {
       alert("Login Gagal: " + error.message);
     } else {
       alert("Selamat Datang!");
+      router.refresh();
       router.push('/dashboard'); // Pindah ke Dashboard setelah sukses
     }
     setLoading(false);
