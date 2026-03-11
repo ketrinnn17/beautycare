@@ -1,250 +1,152 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useParams } from 'next/navigation';
-import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 
-// Mock Data for Products (must be the same as in other pages using it)
-const mockProducts = [
-  {
-    id: '1',
-    name: 'Glow Serum',
-    brand: 'Radiant Skin',
-    category: 'Skincare',
-    price: 'Rp 150.000',
-    description: 'Serum pencerah wajah dengan kandungan Vitamin C dan Hyaluronic Acid untuk kulit glowing dan terhidrasi.',
-    image: '/product-glow-serum.png',
-  },
-  {
-    id: '2',
-    name: 'Velvet Matte Lipstick',
-    brand: 'Glamour Cosmetics',
-    category: 'Makeup',
-    price: 'Rp 85.000',
-    description: 'Lipstik matte bertekstur velvet yang lembut dengan pigmentasi tinggi, tahan lama dan nyaman di bibir.',
-    image: '/product-lipstick.png',
-  },
-  {
-    id: '3',
-    name: 'Hydrating Facial Toner',
-    brand: 'Aqua Pure',
-    category: 'Skincare',
-    price: 'Rp 120.000',
-    description: 'Toner hidrasi intensif untuk menyeimbangkan pH kulit dan mempersiapkan kulit menerima produk selanjutnya.',
-    image: '/product-toner.png',
-  },
-  {
-    id: '4',
-    name: 'Eyeshadow Palette Nude',
-    brand: 'Color Burst',
-    category: 'Makeup',
-    price: 'Rp 210.000',
-    description: 'Palet eyeshadow dengan 12 warna nude yang serbaguna untuk tampilan sehari-hari maupun glamor.',
-    image: '/product-eyeshadow.png',
-  },
-  {
-    id: '5',
-    name: 'SPF 50 Sunscreen',
-    brand: 'SunShield',
-    category: 'Skincare',
-    price: 'Rp 95.000',
-    description: 'Tabir surya ringan dengan SPF 50 PA+++ yang melindungi kulit dari sinar UVA/UVB tanpa rasa lengket.',
-    image: '/product-sunscreen.png',
-  },
-  {
-    id: '6',
-    name: 'BB Cream Natural',
-    brand: 'BeautyBlend',
-    category: 'Makeup',
-    price: 'Rp 180.000',
-    description: 'BB Cream dengan coverage natural yang menyamarkan noda dan meratakan warna kulit, diperkaya pelembab.',
-    image: '/product-bb-cream.png',
-  },
-];
-
-export default function EditProduct() {
-  const router = useRouter();
+export default function EditProductPage() {
   const params = useParams();
-  const { id } = params;
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  
+  // State untuk form
+  const [formData, setFormData] = useState({
+    name: '',
+    price: '',
+    cat: '',
+    brand: '',
+    image: ''
+  });
 
-  const [name, setName] = useState('');
-  const [brand, setBrand] = useState('');
-  const [category, setCategory] = useState('');
-  const [price, setPrice] = useState('');
-  const [description, setDescription] = useState('');
-  const [imageUrl, setImageUrl] = useState('');
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
-
+  // 1. Ambil data lama saat halaman dimuat
   useEffect(() => {
-    if (id) {
-      const productToEdit = mockProducts.find((p) => p.id === id);
-      if (productToEdit) {
-        setName(productToEdit.name);
-        setBrand(productToEdit.brand);
-        setCategory(productToEdit.category);
-        setPrice(productToEdit.price);
-        setDescription(productToEdit.description);
-        setImageUrl(productToEdit.image);
-      } else {
-        alert('Produk tidak ditemukan!');
-        router.push('/dashboard');
+    const fetchProduct = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .eq('id', params.id)
+          .single();
+
+        if (error) throw error;
+        if (data) {
+          setFormData({
+            name: data.name,
+            price: data.price.toString(), // Pastikan jadi string untuk input
+            cat: data.cat,
+            brand: data.brand || '',
+            image: data.image
+          });
+        }
+      } catch (err) {
+        console.error("Gagal ambil data:", err);
+        alert("Produk tidak ditemukan!");
+      } finally {
+        setLoading(false);
       }
-    }
-  }, [id, router]);
+    };
 
-  const validateForm = () => {
-    const newErrors: { [key: string]: string } = {};
-    if (!name) newErrors.name = 'Nama produk wajib diisi';
-    if (!brand) newErrors.brand = 'Brand wajib diisi';
-    if (!category) newErrors.category = 'Kategori wajib diisi';
-    if (!price) newErrors.price = 'Harga wajib diisi';
-    if (!description) newErrors.description = 'Deskripsi wajib diisi';
-    if (!imageUrl) newErrors.imageUrl = 'URL Gambar wajib diisi';
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+    if (params.id) fetchProduct();
+  }, [params.id]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // 2. Fungsi simpan perubahan
+  const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (validateForm()) {
-      const updatedProduct = {
-        id: String(id), // Ensure ID is string
-        name,
-        brand,
-        category,
-        price,
-        description,
-        image: imageUrl,
-      };
-      console.log('Produk berhasil diupdate (simulasi):', updatedProduct);
-      alert('Produk berhasil diupdate!');
-      // In a real app, you would send this to an API
-      // and then update the global product state.
-      router.push(`/product/${id}`); // Redirect to product detail page
+    setLoading(true);
+
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({
+          name: formData.name,
+          price: parseInt(formData.price), // Ubah kembali ke angka
+          cat: formData.cat,
+          brand: formData.brand,
+          image: formData.image
+        })
+        .eq('id', params.id);
+
+      if (error) throw error;
+
+      alert("Produk berhasil diperbarui! ✨");
+      router.push('/dashboard'); // Balik ke dashboard
+      router.refresh(); // Segarkan data
+    } catch (err: any) {
+      alert("Gagal update: " + err.message);
+    } finally {
+      setLoading(false);
     }
   };
+
+  if (loading) return <div className="p-10 text-center">Menyiapkan data produk...</div>;
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-100">
-      <header className="bg-pink-600 text-white p-4 shadow-md flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Edit Produk</h2>
-        <Link href="/dashboard" className="text-pink-100 hover:text-white transition-colors">
-          Kembali ke Dashboard
-        </Link>
-      </header>
-
-      <main className="flex-grow p-8 max-w-4xl mx-auto w-full">
-        <div className="bg-white p-8 rounded-lg shadow-xl">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label htmlFor="name" className="block text-gray-700 text-sm font-bold mb-2">
-                Nama Produk
-              </label>
-              <input
-                type="text"
-                id="name"
-                className={`shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline ${
-                  errors.name ? 'border-red-500' : ''
-                }`}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-              {errors.name && <p className="text-red-500 text-xs italic mt-1">{errors.name}</p>}
-            </div>
-
-            <div>
-              <label htmlFor="brand" className="block text-gray-700 text-sm font-bold mb-2">
-                Brand
-              </label>
-              <input
-                type="text"
-                id="brand"
-                className={`shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline ${
-                  errors.brand ? 'border-red-500' : ''
-                }`}
-                value={brand}
-                onChange={(e) => setBrand(e.target.value)}
-              />
-              {errors.brand && <p className="text-red-500 text-xs italic mt-1">{errors.brand}</p>}
-            </div>
-
-            <div>
-              <label htmlFor="category" className="block text-gray-700 text-sm font-bold mb-2">
-                Kategori
-              </label>
-              <select
-                id="category"
-                className={`shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline ${
-                  errors.category ? 'border-red-500' : ''
-                }`}
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-              >
-                <option value="">Pilih Kategori</option>
-                <option value="Skincare">Skincare</option>
-                <option value="Makeup">Makeup</option>
-              </select>
-              {errors.category && <p className="text-red-500 text-xs italic mt-1">{errors.category}</p>}
-            </div>
-
-            <div>
-              <label htmlFor="price" className="block text-gray-700 text-sm font-bold mb-2">
-                Harga (contoh: Rp 150.000)
-              </label>
-              <input
-                type="text"
-                id="price"
-                className={`shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline ${
-                  errors.price ? 'border-red-500' : ''
-                }`}
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-              />
-              {errors.price && <p className="text-red-500 text-xs italic mt-1">{errors.price}</p>}
-            </div>
-
-            <div>
-              <label htmlFor="description" className="block text-gray-700 text-sm font-bold mb-2">
-                Deskripsi
-              </label>
-              <textarea
-                id="description"
-                rows={5}
-                className={`shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline ${
-                  errors.description ? 'border-red-500' : ''
-                }`}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              ></textarea>
-              {errors.description && <p className="text-red-500 text-xs italic mt-1">{errors.description}</p>}
-            </div>
-
-            <div>
-              <label htmlFor="imageUrl" className="block text-gray-700 text-sm font-bold mb-2">
-                URL Gambar Produk (e.g., /product-new.png)
-              </label>
-              <input
-                type="text"
-                id="imageUrl"
-                className={`shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline ${
-                  errors.imageUrl ? 'border-red-500' : ''
-                }`}
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-              />
-              {errors.imageUrl && <p className="text-red-500 text-xs italic mt-1">{errors.imageUrl}</p>}
-            </div>
-
-            <button
-              type="submit"
-              className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full transition-colors"
-            >
-              Simpan Perubahan
-            </button>
-          </form>
+    <div className="max-w-2xl mx-auto p-8">
+      <h1 className="text-2xl font-bold mb-6">Edit Produk</h1>
+      
+      <form onSubmit={handleUpdate} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium mb-1">Nama Produk</label>
+          <input
+            type="text"
+            className="w-full p-2 border rounded text-black"
+            value={formData.name}
+            onChange={(e) => setFormData({...formData, name: e.target.value})}
+            required
+          />
         </div>
-      </main>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">Harga (Angka Saja)</label>
+          <input
+            type="number"
+            className="w-full p-2 border rounded text-black"
+            value={formData.price}
+            onChange={(e) => setFormData({...formData, price: e.target.value})}
+            required
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">Kategori</label>
+          <select 
+            className="w-full p-2 border rounded text-black"
+            value={formData.cat}
+            onChange={(e) => setFormData({...formData, cat: e.target.value})}
+          >
+            <option value="Skincare">Skincare</option>
+            <option value="Makeup">Makeup</option>
+            <option value="Bodycare">Bodycare</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">URL Gambar</label>
+          <input
+            type="text"
+            className="w-full p-2 border rounded text-black"
+            value={formData.image}
+            onChange={(e) => setFormData({...formData, image: e.target.value})}
+          />
+        </div>
+
+        <div className="flex gap-4 pt-4">
+          <button
+            type="submit"
+            disabled={loading}
+            className="bg-pink-500 text-white px-6 py-2 rounded-lg font-bold hover:bg-pink-600"
+          >
+            {loading ? 'Menyimpan...' : 'Simpan Perubahan'}
+          </button>
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="bg-gray-200 px-6 py-2 rounded-lg font-bold"
+          >
+            Batal
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
